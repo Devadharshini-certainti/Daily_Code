@@ -1,95 +1,39 @@
-const express = require('express');
+require('dotenv').config();
 
-const router = express.Router();
-const getCart = (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Cart fetched successfully',
-    data: []
+const app = require('./app');
+const { connectDB, sequelize } = require('./config/database');
+const { connectProducer, disconnectProducer } = require('./kafka/producer');
+const logger = require('./utils/logger');
+const PORT = process.env.PORT || 3000;
+const EXTERNAL_PORT = process.env.EXTERNAL_PORT || 3003;
+const start = async () => {
+  await connectDB();
+  await connectProducer();
+
+  const server = app.listen(PORT, () => {
+    logger.info(
+`Order service running - internal:${PORT} external:${EXTERNAL_PORT}`
+    );
   });
-};
+  const shutdown = async (signal) => {
+    logger.info(`${signal} received  shutting down`);
 
-const addToCart = (req, res) => {
-  const { restaurantId, menuItemId, name, price, quantity } = req.body;
-
-  if (!restaurantId) {
-    return res.status(400).json({
-      success: false,
-      message: 'restaurantId is required'
+ server.close(async ()=> {
+      try {
+await disconnectProducer();
+    await sequelize.close();
+    logger.info('Shutdown complete');
+        process.exit(0);
+      } catch (err) {
+        logger.error('Shutdown error', err);
+   process.exit(1);
+      }
     });
-  }
-
-  if (!menuItemId) {
-    return res.status(400).json({
-    success: false,
-     message: 'menuItemId is required'
-    });
-  }
-
-  if (!name) {
-    return res.status(400).json({
-   success: false,
- message: 'name is required'
-    });
-  }
-
-  if (!price) {
-    return res.status(400).json({
-      success: false,
-      message: 'price is required'
-    });
-  }
-  res.status(201).json({
-    success: true,
-    message: 'Item added to cart',
-    data: {
-    restaurantId,
-   menuItemId,
-  name,
-     price,
-    quantity: quantity || 1
-    }
-  });
+  };
+  process.on('SIGTERM',()=> shutdown('SIGTERM'));
+ process.on('SIGINT',()=> shutdown('SIGINT'));
 };
-const updateCartItem = (req, res) => {
-  const { menuItemId } = req.params;
-  const { quantity } = req.body;
-
-  if (!quantity || quantity < 1) {
-    return res.status(400).json({
-      success: false,
-      message: 'quantity must be greater than 0'
-    });
-  }
-  res.status(200).json({
-    success: true,
-    message: 'Cart item updated',
-    data: {
-      menuItemId,
-      quantity
-    }
-  });
-};
-const removeCartItem = (req, res) => {
-  const { menuItemId } = req.params;
-
-  res.status(200).json({
-    success: true,
-    message: 'Cart item removed',
-    data: {
-      menuItemId
-    }
-  });
-};
-const clearCart = (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Cart cleared successfully'
-  });
-};
-router.get('/', getCart);
-router.post('/', addToCart);
-router.put('/:menuItemId', updateCartItem);
-router.delete('/:menuItemId', removeCartItem);
-router.delete('/', clearCart);
-module.exports = router;
+start().catch((err) => {
+  logger.error('Failed start order service', err);
+  process.exit(1);
+});
