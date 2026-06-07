@@ -1,0 +1,24 @@
+{
+  "name": "order-service",
+  "version": "1.0.0",
+  "description": "Order Service for e-commerce microservices",
+  "main": "Order_Service/index.js",
+  "scripts": {
+    "start": "node Order_Service/index.js",
+    "dev": "nodemon Order_Service/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.32.1",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
